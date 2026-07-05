@@ -1430,32 +1430,28 @@
                 return;
             }
             inwiElements.msg.textContent = 'جاري الإضافة...';
-            
+
             const docRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
-            
-            return db.runTransaction(transaction => {
-                return transaction.get(docRef).then(doc => {
-                    let newBalance = amount;
-                    if (doc.exists) {
-                        newBalance = (doc.data().balance || 0) + amount;
-                    }
-                    transaction.set(docRef, { balance: newBalance }, { merge: true });
-                });
-            }).then(() => {
-                const now = new Date();
-                const hh = String(now.getHours()).padStart(2, '0');
-                const mm = String(now.getMinutes()).padStart(2, '0');
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const today = now.toISOString().split('T')[0];
+
+            docRef.set(
+                { balance: firebase.firestore.FieldValue.increment(amount) },
+                { merge: true }
+            ).then(() => {
                 return db.collection('userMeta').doc(currentUserUid).collection('inwiAdditions').add({
                     id: Date.now(),
                     amount: amount,
-                    date: elements.date.value || now.toISOString().split('T')[0],
+                    date: (elements.date && elements.date.value) || today,
                     time: `${hh}:${mm}`
                 });
             }).then(() => {
                 inwiElements.modal.classList.remove('active');
             }).catch(err => {
-                console.error(err);
-                inwiElements.msg.textContent = 'حدث خطأ أثناء الإضافة';
+                console.error('confirmInwiAdd error:', err);
+                inwiElements.msg.textContent = 'حدث خطأ أثناء الإضافة: ' + (err.message || '');
             });
         });
     };
@@ -1556,22 +1552,18 @@
                 return;
             }
             boxElements.msg.textContent = 'جاري التنفيذ...';
-            
+
+            const delta = boxActionType === 'add' ? amount : -amount;
             const docRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('boxAccount');
-            
-            return db.runTransaction(transaction => {
-                return transaction.get(docRef).then(doc => {
-                    let newBalance = boxActionType === 'add' ? amount : -amount;
-                    if (doc.exists) {
-                        newBalance = (doc.data().balance || 0) + (boxActionType === 'add' ? amount : -amount);
-                    }
-                    transaction.set(docRef, { balance: newBalance }, { merge: true });
-                });
-            }).then(() => {
+
+            docRef.set(
+                { balance: firebase.firestore.FieldValue.increment(delta) },
+                { merge: true }
+            ).then(() => {
                 boxElements.modal.classList.remove('active');
             }).catch(err => {
-                console.error(err);
-                boxElements.msg.textContent = 'حدث خطأ أثناء التنفيذ';
+                console.error('confirmBox error:', err);
+                boxElements.msg.textContent = 'حدث خطأ: ' + (err.message || '');
             });
         });
     };
@@ -1950,17 +1942,13 @@
 
         // أضف في Firestore — onSnapshot سيحدّث الواجهة تلقائياً
         recordsBaseCol.add(newRecord).then(() => {
+            // خصم فوري من حساب inwi عند تسجيل أي عملية
             if (currentUserUid) {
-                const docRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
-                db.runTransaction(transaction => {
-                    return transaction.get(docRef).then(doc => {
-                        let newBalance = -amount;
-                        if (doc.exists) {
-                            newBalance = (doc.data().balance || 0) - amount;
-                        }
-                        transaction.set(docRef, { balance: newBalance }, { merge: true });
-                    });
-                }).catch(err => console.error('Failed to deduct from inwi balance', err));
+                const docRefInwi = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+                docRefInwi.set(
+                    { balance: firebase.firestore.FieldValue.increment(-amount) },
+                    { merge: true }
+                ).catch(err => console.error('inwi deduct on addRecord error:', err));
             }
 
             // تحديث قائمة الخدمات المخزنة في المستند
@@ -2016,24 +2004,12 @@
 
         paymentsBaseCol.add(newPayment).then(() => {
             if (currentUserUid) {
-                const docRefInwi = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+                // خصم من الصندوق عند تسجيل دفع
                 const docRefBox = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('boxAccount');
-                
-                db.runTransaction(transaction => {
-                    return Promise.all([transaction.get(docRefInwi), transaction.get(docRefBox)]).then(([docInwi, docBox]) => {
-                        let newInwi = amount;
-                        if (docInwi.exists) {
-                            newInwi = (docInwi.data().balance || 0) + amount;
-                        }
-                        transaction.set(docRefInwi, { balance: newInwi }, { merge: true });
-
-                        let newBox = -amount;
-                        if (docBox.exists) {
-                            newBox = (docBox.data().balance || 0) - amount;
-                        }
-                        transaction.set(docRefBox, { balance: newBox }, { merge: true });
-                    });
-                }).catch(err => console.error('Failed to update balances on addPayment', err));
+                docRefBox.set(
+                    { balance: firebase.firestore.FieldValue.increment(-amount) },
+                    { merge: true }
+                ).catch(err => console.error('box deduct on addPayment error:', err));
             }
 
             elements.paymentType.value = '';
@@ -2079,16 +2055,12 @@
             if (!docId) return;
             recordsBaseCol.doc(docId).update({ isPaid: true }).then(() => {
                 if (currentUserUid) {
+                    // إضافة للصندوق فقط (inwi خُصم مسبقاً عند التسجيل)
                     const docRefBox = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('boxAccount');
-                    db.runTransaction(transaction => {
-                        return transaction.get(docRefBox).then(doc => {
-                            let newBox = record.amount;
-                            if (doc.exists) {
-                                newBox = (doc.data().balance || 0) + record.amount;
-                            }
-                            transaction.set(docRefBox, { balance: newBox }, { merge: true });
-                        });
-                    }).catch(err => console.error('Failed to add to box balance', err));
+                    docRefBox.set(
+                        { balance: firebase.firestore.FieldValue.increment(record.amount) },
+                        { merge: true }
+                    ).catch(err => console.error('box add error:', err));
                 }
             }).catch(e => console.warn('markAsPaid failed:', e));
         }
@@ -2320,5 +2292,4 @@
         }
     }
 </script>
-
 
