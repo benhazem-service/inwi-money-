@@ -2187,6 +2187,13 @@
                     { balance: firebase.firestore.FieldValue.increment(-amount) },
                     { merge: true }
                 ).catch(err => console.error('box deduct on addPayment error:', err));
+
+                // إضافة لحساب inwi عند تسجيل دفع
+                const docRefInwi = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+                docRefInwi.set(
+                    { balance: firebase.firestore.FieldValue.increment(amount) },
+                    { merge: true }
+                ).catch(err => console.error('inwi add on addPayment error:', err));
             }
 
             elements.paymentType.value = '';
