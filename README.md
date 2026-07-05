@@ -705,6 +705,19 @@
         </div>
         <div class="date-control">
             <input type="date" id="currentDate">
+            <button type="button" id="dateHistoryBtn" onclick="openDateHistory()" style="margin-right:8px; background:rgba(255,255,255,0.15); color:inherit; border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:6px 12px; font-size:0.85rem; cursor:pointer;">📅 الأيام</button>
+        </div>
+
+        <!-- مودال تاريخ الأيام -->
+        <div id="dateHistoryModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+            <div style="background:#1e1e2e; border:1px solid rgba(255,255,255,0.15); border-radius:16px; padding:20px; width:90%; max-width:400px; max-height:80vh; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0; color:#fff; font-size:1rem;">📅 الأيام المسجلة</h3>
+                    <button type="button" onclick="closeDateHistory()" style="background:none; border:none; color:rgba(255,255,255,0.5); font-size:1.4rem; cursor:pointer;">✕</button>
+                </div>
+                <div id="dateHistoryList" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;">
+                </div>
+            </div>
         </div>
 
         <!-- 2. أزرار الفلترة والتفاصيل (Filters) -->
@@ -1657,11 +1670,128 @@
         if (elGrand) elGrand.textContent = grand.toFixed(2);
     }
 
+    // ====== مودال الأيام المسجلة ======
+    window.openDateHistory = function() {
+        // جمع كل التواريخ الفريدة من السجلات والمدفوعات
+        const datesSet = new Set();
+        records.forEach(r => { if (r.date) datesSet.add(r.date); });
+        payments.forEach(p => { if (p.date) datesSet.add(p.date); });
+
+        const sortedDates = [...datesSet].sort((a, b) => b.localeCompare(a)); // من الأحدث للأقدم
+
+        const list = document.getElementById('dateHistoryList');
+        list.innerHTML = '';
+
+        if (sortedDates.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">لا توجد أيام مسجلة</div>';
+        } else {
+            sortedDates.forEach(date => {
+                const recCount  = records.filter(r => r.date === date).length;
+                const payCount  = payments.filter(p => p.date === date).length;
+                const total     = records.filter(r => r.date === date).reduce((s,r) => s+(r.amount||0), 0);
+                const item = document.createElement('div');
+                item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.07);border-radius:10px;padding:10px 14px;';
+                item.innerHTML = `
+                    <div>
+                        <div style="color:#fff;font-weight:bold;font-size:0.95rem;">${date}</div>
+                        <div style="color:rgba(255,255,255,0.45);font-size:0.75rem;">${recCount} سجل &nbsp;·&nbsp; ${payCount} دفع &nbsp;·&nbsp; ${total.toFixed(2)}</div>
+                    </div>
+                    <button type="button" onclick="deleteDayRecords('${date}')" style="background:#e53935;color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:0.85rem;cursor:pointer;font-weight:bold;">✕ حذف</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        document.getElementById('dateHistoryModal').style.display = 'flex';
+    };
+
+    window.closeDateHistory = function() {
+        document.getElementById('dateHistoryModal').style.display = 'none';
+    };
+
+    window.deleteDayRecords = function(date) {
+        if (!currentUserUid) return;
+        requireDeletePin().then(() => {
+            const batch = db.batch();
+            let count = 0;
+
+            // حذف السجلات
+            const dayRecs = records.filter(r => r.date === date && r.docId);
+            dayRecs.forEach(r => {
+                batch.delete(recordsBaseCol.doc(r.docId));
+                count++;
+            });
+
+            // حذف المدفوعات
+            const dayPays = payments.filter(p => p.date === date && p.docId);
+            dayPays.forEach(p => {
+                batch.delete(paymentsBaseCol.doc(p.docId));
+                count++;
+            });
+
+            if (count === 0) {
+                closeDateHistory();
+                return;
+            }
+
+            batch.commit().then(() => {
+                closeDateHistory();
+            }).catch(err => {
+                console.error('deleteDayRecords error:', err);
+                alert('حدث خطأ أثناء الحذف');
+            });
+        }).catch(err => {
+            if (err && err.message === 'PIN_NOT_SET') {
+                alert('المرجو تعيين PIN للحذف من الإعدادات');
+            }
+        });
+    };
+
+    // ====== حذف تلقائي للعمليات الأقدم من 30 يوماً ======
+    function autoDeleteOldRecords(uid) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 30);
+        const cutoffStr = cutoff.toISOString().slice(0, 10); // YYYY-MM-DD
+
+        // حذف السجلات القديمة
+        recordsBaseCol.where('ownerUid', '==', uid)
+            .where('date', '<', cutoffStr)
+            .get()
+            .then(snapshot => {
+                if (snapshot.empty) return;
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                return batch.commit();
+            })
+            .then(() => {
+                console.log('تم حذف السجلات القديمة تلقائياً');
+            })
+            .catch(err => console.warn('autoDelete records error:', err));
+
+        // حذف المدفوعات القديمة
+        paymentsBaseCol.where('ownerUid', '==', uid)
+            .where('date', '<', cutoffStr)
+            .get()
+            .then(snapshot => {
+                if (snapshot.empty) return;
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                return batch.commit();
+            })
+            .then(() => {
+                console.log('تم حذف المدفوعات القديمة تلقائياً');
+            })
+            .catch(err => console.warn('autoDelete payments error:', err));
+    }
+
     function attachUserScopedListeners(uid) {
         if (unsubscribeRecords) { unsubscribeRecords(); unsubscribeRecords = null; }
         if (unsubscribePayments) { unsubscribePayments(); unsubscribePayments = null; }
         if (unsubscribeServices) { unsubscribeServices(); unsubscribeServices = null; }
         if (unsubscribeInwiAdditions) { unsubscribeInwiAdditions(); unsubscribeInwiAdditions = null; }
+
+        // حذف تلقائي للعمليات الأقدم من 30 يوماً عند تسجيل الدخول
+        autoDeleteOldRecords(uid);
 
         // --- المزامنة من Firestore (real-time) ---
         unsubscribeRecords = recordsBaseCol.where('ownerUid', '==', uid).onSnapshot(snapshot => {
@@ -2342,5 +2472,4 @@
         updateTotalCard();
     }
 </script>
-
 
