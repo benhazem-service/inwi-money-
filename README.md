@@ -657,6 +657,31 @@
     </div>
 
     <div id="mainView">
+        <!-- بطاقة المجموع الكلي -->
+        <div id="total-summary-card" style="background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 18px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <div style="color: rgba(255,255,255,0.6); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px;">المجموع الكلي</div>
+            <div style="display: flex; align-items: center; gap: 18px;">
+                <div style="text-align: center;">
+                    <div style="color: rgba(255,255,255,0.45); font-size: 0.65rem;">الصندوق</div>
+                    <div id="total-box-part" style="color: #8ab4f8; font-size: 0.9rem; font-weight: bold;">0.00</div>
+                </div>
+                <div style="color: rgba(255,255,255,0.25); font-size: 1rem;">+</div>
+                <div style="text-align: center;">
+                    <div style="color: rgba(255,255,255,0.45); font-size: 0.65rem;">الحساب</div>
+                    <div id="total-inwi-part" style="color: #ff9800; font-size: 0.9rem; font-weight: bold;">0.00</div>
+                </div>
+                <div style="color: rgba(255,255,255,0.25); font-size: 1rem;">+</div>
+                <div style="text-align: center;">
+                    <div style="color: rgba(255,255,255,0.45); font-size: 0.65rem;">الباقي</div>
+                    <div id="total-remaining-part" style="color: #69f0ae; font-size: 0.9rem; font-weight: bold;">0.00</div>
+                </div>
+                <div style="color: rgba(255,255,255,0.25); font-size: 1rem;">=</div>
+                <div style="text-align: center;">
+                    <div id="total-grand" style="color: #ffffff; font-size: 1.3rem; font-weight: 900;">0.00</div>
+                </div>
+            </div>
+        </div>
+
         <div class="box-account-card" style="background: #e8f0fe; border: 2px solid #8ab4f8; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; flex-direction: column; text-align: right;">
                 <h3 style="margin: 0; color: #1a73e8; font-size: 1rem;">الصندوق</h3>
@@ -1612,6 +1637,26 @@
         renderRecords();
     });
 
+    // ====== تحديث بطاقة المجموع الكلي ======
+    function updateTotalCard() {
+        // الباقي = مجموع مبالغ العمليات غير المستخلصة
+        const remaining = records
+            .filter(r => r.kind !== 'payment' && !r.isPaid)
+            .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+        const grand = (boxBalance || 0) + (inwiBalance || 0) + remaining;
+
+        const elBox  = document.getElementById('total-box-part');
+        const elInwi = document.getElementById('total-inwi-part');
+        const elRem  = document.getElementById('total-remaining-part');
+        const elGrand= document.getElementById('total-grand');
+
+        if (elBox)   elBox.textContent   = (boxBalance  || 0).toFixed(2);
+        if (elInwi)  elInwi.textContent  = (inwiBalance || 0).toFixed(2);
+        if (elRem)   elRem.textContent   = remaining.toFixed(2);
+        if (elGrand) elGrand.textContent = grand.toFixed(2);
+    }
+
     function attachUserScopedListeners(uid) {
         if (unsubscribeRecords) { unsubscribeRecords(); unsubscribeRecords = null; }
         if (unsubscribePayments) { unsubscribePayments(); unsubscribePayments = null; }
@@ -1682,6 +1727,7 @@
             if (inwiElements.valDisplay) {
                 inwiElements.valDisplay.textContent = inwiBalance.toFixed(2);
             }
+            updateTotalCard();
         }, err => {
             console.warn('Firestore inwi onSnapshot error:', err);
         });
@@ -1696,6 +1742,7 @@
             if (boxElements.valDisplay) {
                 boxElements.valDisplay.textContent = boxBalance.toFixed(2);
             }
+            updateTotalCard();
         }, err => console.warn('boxAccount onSnapshot error:', err));
 
         const userServicesDoc = db.collection('userMeta').doc(uid).collection('meta').doc('savedServices');
@@ -2290,6 +2337,10 @@
         if (listToRender.length === 0) {
             elements.list.innerHTML = '<div style="text-align:center; padding:30px; color:#999;">لا توجد بيانات</div>';
         }
+
+        // تحديث بطاقة المجموع الكلي
+        updateTotalCard();
     }
 </script>
+
 
