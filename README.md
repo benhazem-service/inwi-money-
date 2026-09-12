@@ -682,25 +682,32 @@
             </div>
         </div>
 
-        <div class="box-account-card" style="background: #e8f0fe; border: 2px solid #8ab4f8; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; flex-direction: column; text-align: right;">
-                <h3 style="margin: 0; color: #1a73e8; font-size: 1rem;">الصندوق</h3>
-                <div style="font-size: 1.8rem; font-weight: bold; color: #1a73e8; direction: ltr;" id="val-box-account">0.00</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px;">
+            <div class="box-account-card" style="background: #e8f0fe; border: 2px solid #8ab4f8; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                <h3 style="margin: 0 0 10px 0; color: #1a73e8; font-size: 1rem;">الصندوق</h3>
+                <div style="font-size: 1.8rem; font-weight: bold; color: #1a73e8; direction: ltr; margin-bottom: 15px;" id="val-box-account">0.00</div>
+                <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
+                    <button type="button" onclick="promptBox('sub')" style="flex:1; background: white; color: #1a73e8; border: 1px solid #1a73e8; border-radius: 8px; padding: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">-</button>
+                    <button type="button" onclick="promptBox('add')" style="flex:1; background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">+</button>
+                </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="button" onclick="promptBox('sub')" style="background: white; color: #1a73e8; border: 1px solid #1a73e8; border-radius: 8px; padding: 0 15px; font-size: 1.5rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">-</button>
-                <button type="button" onclick="promptBox('add')" style="background: #1a73e8; color: white; border: none; border-radius: 8px; padding: 0 15px; font-size: 1.5rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">+</button>
-            </div>
-        </div>
 
-        <div class="inwi-account-card" style="background: var(--orange-light); border: 2px solid var(--orange-border); border-radius: 12px; padding: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="openInwiHistoryPage()">
-            <div style="display: flex; flex-direction: column; text-align: right;">
-                <h3 style="margin: 0; color: var(--orange); font-size: 1rem;">حساب inwi</h3>
-                <div style="font-size: 1.8rem; font-weight: bold; color: var(--orange); direction: ltr;" id="val-inwi-account">0.00</div>
+            <div class="inwi-account-card" style="background: var(--orange-light); border: 2px solid var(--orange-border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; cursor: pointer;" onclick="openInwiHistoryPage()">
+                <h3 style="margin: 0 0 10px 0; color: var(--orange); font-size: 1rem;">حساب inwi</h3>
+                <div style="font-size: 1.8rem; font-weight: bold; color: var(--orange); direction: ltr; margin-bottom: 15px;" id="val-inwi-account">0.00</div>
+                <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
+                    <button type="button" onclick="promptInwiEdit(); event.stopPropagation();" style="flex:1; background: white; color: var(--orange); border: 1px solid var(--orange); border-radius: 8px; padding: 8px; font-size: 0.9rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">تعديل</button>
+                    <button type="button" onclick="promptInwiAdd(); event.stopPropagation();" style="flex:1; background: var(--orange); color: white; border: none; border-radius: 8px; padding: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">+</button>
+                </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="button" onclick="promptInwiEdit(); event.stopPropagation();" style="background: white; color: var(--orange); border: 1px solid var(--orange); border-radius: 8px; padding: 0 10px; font-size: 0.9rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">تعديل</button>
-                <button type="button" onclick="promptInwiAdd(); event.stopPropagation();" style="background: var(--orange); color: white; border: none; border-radius: 50%; width: 45px; height: 45px; font-size: 1.5rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">+</button>
+
+            <div class="profit-account-card" style="background: #f3e5f5; border: 2px solid #ba68c8; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; cursor: pointer;" onclick="openProfitHistoryPage()">
+                <h3 style="margin: 0 0 10px 0; color: #8e24aa; font-size: 1rem;">حساب الأرباح</h3>
+                <div style="font-size: 1.8rem; font-weight: bold; color: #8e24aa; direction: ltr; margin-bottom: 15px;" id="val-profit-account">0.00</div>
+                <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
+                    <button type="button" onclick="promptProfitCalc(); event.stopPropagation();" style="flex:1; background: white; color: #8e24aa; border: 1px solid #8e24aa; border-radius: 8px; padding: 8px; font-size: 0.9rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">إضافة رصيد جديد</button>
+                    <button type="button" onclick="promptProfitClear(); event.stopPropagation();" style="flex:1; background: #8e24aa; color: white; border: none; border-radius: 8px; padding: 8px; font-size: 0.9rem; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">مسح</button>
+                </div>
             </div>
         </div>
         <div class="date-control">
@@ -819,6 +826,17 @@
                 <div style="min-width: 1px;"></div>
             </div>
             <div class="payment-history" id="inwiHistoryList" style="max-height: 400px; overflow: auto;"></div>
+        </div>
+    </div>
+
+    <div id="profitHistoryView" style="display: none;">
+        <div class="payment-page">
+            <div class="payment-page-header">
+                <button class="back-btn" type="button" onclick="closeProfitHistoryPage()">رجوع</button>
+                <div class="title">سجل الأرباح الممسوحة</div>
+                <div style="min-width: 1px;"></div>
+            </div>
+            <div class="payment-history" id="profitHistoryList" style="max-height: 400px; overflow: auto;"></div>
         </div>
     </div>
 
@@ -973,6 +991,45 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="profitCalcModal">
+    <div class="modal">
+        <div class="modal-title">إدخال الرصيد الجديد لحساب inwi</div>
+        <div class="form-row" style="margin-bottom: 10px;">
+            <input type="number" id="profitCalcAmountInput" placeholder="الرصيد الجديد المتوفر لديك" step="0.01">
+        </div>
+        <div class="form-row" style="margin-bottom: 10px;">
+            <input type="password" id="profitCalcPinInput" placeholder="الرقم السري (PIN)" style="direction:ltr;">
+        </div>
+        <label class="checkbox-wrapper" style="justify-content:center;">
+            <input type="checkbox" id="showProfitCalcPin" onclick="toggleProfitCalcPinVisibility()">
+            <span>إظهار PIN</span>
+        </label>
+        <div class="modal-actions">
+            <button type="button" onclick="closeProfitCalcModal()">إلغاء</button>
+            <button class="primary" type="button" onclick="confirmProfitCalc()">حساب وتحديث</button>
+        </div>
+        <div class="modal-msg" id="profitCalcModalMsg"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="profitClearModal">
+    <div class="modal">
+        <div class="modal-title">مسح الأرباح وحفظها في الإحصائيات</div>
+        <div class="form-row" style="margin-bottom: 10px;">
+            <input type="password" id="profitClearPinInput" placeholder="الرقم السري (PIN)" style="direction:ltr;">
+        </div>
+        <label class="checkbox-wrapper" style="justify-content:center;">
+            <input type="checkbox" id="showProfitClearPin" onclick="toggleProfitClearPinVisibility()">
+            <span>إظهار PIN</span>
+        </label>
+        <div class="modal-actions">
+            <button type="button" onclick="closeProfitClearModal()">إلغاء</button>
+            <button class="primary" type="button" onclick="confirmProfitClear()">تأكيد المسح</button>
+        </div>
+        <div class="modal-msg" id="profitClearModalMsg"></div>
+    </div>
+</div>
+
 <!-- أضف هنا مكتبات Firebase قبل سكربت التطبيق -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
@@ -1033,7 +1090,9 @@
     let unsubscribePayments = null;
     let unsubscribeServices = null;
     let unsubscribeInwiAdditions = null;
+    let unsubscribeProfitHistory = null;
     let inwiAdditions = [];
+    let profitHistory = [];
 
     let authMode = 'login';
 
@@ -1084,6 +1143,24 @@
         msg: document.getElementById('inwiEditModalMsg')
     };
     let inwiBalance = 0;
+
+    let profitBalance = 0;
+    const profitElements = {
+        valDisplay: document.getElementById('val-profit-account'),
+        historyView: document.getElementById('profitHistoryView'),
+        historyList: document.getElementById('profitHistoryList')
+    };
+    const profitCalcElements = {
+        modal: document.getElementById('profitCalcModal'),
+        amount: document.getElementById('profitCalcAmountInput'),
+        pin: document.getElementById('profitCalcPinInput'),
+        msg: document.getElementById('profitCalcModalMsg')
+    };
+    const profitClearElements = {
+        modal: document.getElementById('profitClearModal'),
+        pin: document.getElementById('profitClearPinInput'),
+        msg: document.getElementById('profitClearModalMsg')
+    };
 
     let boxBalance = 0;
     let boxActionType = 'add';
@@ -1171,11 +1248,13 @@
             if (unsubscribePayments) { unsubscribePayments(); unsubscribePayments = null; }
             if (unsubscribeServices) { unsubscribeServices(); unsubscribeServices = null; }
             if (unsubscribeInwiAdditions) { unsubscribeInwiAdditions(); unsubscribeInwiAdditions = null; }
+            if (unsubscribeProfitHistory) { unsubscribeProfitHistory(); unsubscribeProfitHistory = null; }
 
             records = [];
             payments = [];
             savedServices = [];
             inwiAdditions = [];
+            profitHistory = [];
         }
     });
 
@@ -1282,6 +1361,7 @@
         elements.mainView.classList.add('hidden');
         elements.paymentView.classList.remove('active');
         if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'none';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
         settingsElements.settingsView.classList.add('active');
         settingsElements.changePasswordMsg.textContent = '';
         settingsElements.deletePinMsg.textContent = '';
@@ -1292,6 +1372,7 @@
         settingsElements.settingsView.classList.remove('active');
         elements.paymentView.classList.remove('active');
         if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'none';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
         elements.mainView.classList.remove('hidden');
         renderRecords();
     }
@@ -1547,6 +1628,135 @@
         });
     };
 
+    window.promptProfitCalc = function() {
+        if (!deletePinHash) {
+            alert('المرجو تعيين الرقم السري (PIN) من الإعدادات أولاً');
+            return;
+        }
+        profitCalcElements.amount.value = '';
+        profitCalcElements.pin.value = '';
+        profitCalcElements.msg.textContent = '';
+        document.getElementById('showProfitCalcPin').checked = false;
+        profitCalcElements.pin.type = 'password';
+        profitCalcElements.modal.classList.add('active');
+    };
+
+    window.closeProfitCalcModal = function() { profitCalcElements.modal.classList.remove('active'); };
+    window.toggleProfitCalcPinVisibility = function() {
+        profitCalcElements.pin.type = document.getElementById('showProfitCalcPin').checked ? 'text' : 'password';
+    };
+
+    window.confirmProfitCalc = function() {
+        const newBalance = parseFloat(profitCalcElements.amount.value);
+        const pin = profitCalcElements.pin.value.trim();
+
+        if (isNaN(newBalance) || newBalance < 0) {
+            profitCalcElements.msg.textContent = 'المرجو إدخال مبلغ صحيح';
+            return;
+        }
+        if (!pin) {
+            profitCalcElements.msg.textContent = 'المرجو إدخال الرقم السري';
+            return;
+        }
+
+        sha256Hex(pin).then(hash => {
+            if (hash !== deletePinHash) {
+                profitCalcElements.msg.textContent = 'الرقم السري غير صحيح';
+                return;
+            }
+            profitCalcElements.msg.textContent = 'جاري الحساب...';
+            
+            const profit = newBalance - inwiBalance;
+            const inwiDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+            const profitDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('profitAccount');
+            
+            Promise.all([
+                inwiDocRef.set({ balance: newBalance }, { merge: true }),
+                profitDocRef.set({ balance: firebase.firestore.FieldValue.increment(profit) }, { merge: true })
+            ]).then(() => {
+                profitCalcElements.modal.classList.remove('active');
+            }).catch(err => {
+                console.error(err);
+                profitCalcElements.msg.textContent = 'حدث خطأ أثناء العملية';
+            });
+        });
+    };
+
+    window.promptProfitClear = function() {
+        if (!deletePinHash) {
+            alert('المرجو تعيين الرقم السري (PIN) من الإعدادات أولاً');
+            return;
+        }
+        if (profitBalance === 0) {
+            alert('ليس هناك أرباح لمسحها');
+            return;
+        }
+        profitClearElements.pin.value = '';
+        profitClearElements.msg.textContent = '';
+        document.getElementById('showProfitClearPin').checked = false;
+        profitClearElements.pin.type = 'password';
+        profitClearElements.modal.classList.add('active');
+    };
+
+    window.closeProfitClearModal = function() { profitClearElements.modal.classList.remove('active'); };
+    window.toggleProfitClearPinVisibility = function() {
+        profitClearElements.pin.type = document.getElementById('showProfitClearPin').checked ? 'text' : 'password';
+    };
+
+    window.confirmProfitClear = function() {
+        const pin = profitClearElements.pin.value.trim();
+        if (!pin) {
+            profitClearElements.msg.textContent = 'المرجو إدخال الرقم السري';
+            return;
+        }
+        sha256Hex(pin).then(hash => {
+            if (hash !== deletePinHash) {
+                profitClearElements.msg.textContent = 'الرقم السري غير صحيح';
+                return;
+            }
+            profitClearElements.msg.textContent = 'جاري المسح...';
+            
+            const now = new Date();
+            const dateStr = (elements.date && elements.date.value) || now.toISOString().split('T')[0];
+            const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            const amountToClear = profitBalance;
+            
+            const historyCol = db.collection('userMeta').doc(currentUserUid).collection('profitHistory');
+            const profitDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('profitAccount');
+
+            historyCol.add({
+                id: Date.now(),
+                amount: amountToClear,
+                date: dateStr,
+                time: timeStr
+            }).then(() => {
+                return profitDocRef.set({ balance: 0 }, { merge: true });
+            }).then(() => {
+                profitClearElements.modal.classList.remove('active');
+            }).catch(err => {
+                console.error(err);
+                profitClearElements.msg.textContent = 'حدث خطأ أثناء المسح';
+            });
+        });
+    };
+
+    window.openProfitHistoryPage = function() {
+        currentView = 'profitHistory';
+        elements.mainView.classList.add('hidden');
+        settingsElements.settingsView.classList.remove('active');
+        elements.paymentView.classList.remove('active');
+        if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'none';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'block';
+        renderRecords();
+    };
+
+    window.closeProfitHistoryPage = function() {
+        currentView = 'main';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
+        elements.mainView.classList.remove('hidden');
+        renderRecords();
+    };
+
     window.promptBox = function(type) {
         if (!deletePinHash) {
             alert('المرجو تعيين الرقم السري (PIN) من الإعدادات أولاً');
@@ -1657,7 +1867,8 @@
             .filter(r => r.kind !== 'payment' && !r.isPaid)
             .reduce((sum, r) => sum + (r.amount || 0), 0);
 
-        const grand = (boxBalance || 0) + (inwiBalance || 0) + remaining;
+        const trueInwi = (inwiBalance || 0) - (profitBalance || 0);
+        const grand = (boxBalance || 0) + trueInwi + remaining;
 
         const elBox  = document.getElementById('total-box-part');
         const elInwi = document.getElementById('total-inwi-part');
@@ -1665,7 +1876,7 @@
         const elGrand= document.getElementById('total-grand');
 
         if (elBox)   elBox.textContent   = (boxBalance  || 0).toFixed(2);
-        if (elInwi)  elInwi.textContent  = (inwiBalance || 0).toFixed(2);
+        if (elInwi)  elInwi.textContent  = trueInwi.toFixed(2);
         if (elRem)   elRem.textContent   = remaining.toFixed(2);
         if (elGrand) elGrand.textContent = grand.toFixed(2);
     }
@@ -1862,6 +2073,26 @@
             console.warn('Firestore inwi onSnapshot error:', err);
         });
 
+        const profitAccountDoc = db.collection('userMeta').doc(uid).collection('meta').doc('profitAccount');
+        profitAccountDoc.onSnapshot(doc => {
+            if (doc.exists) {
+                profitBalance = doc.data().balance || 0;
+            } else {
+                profitBalance = 0;
+            }
+            if (profitElements.valDisplay) {
+                profitElements.valDisplay.textContent = profitBalance.toFixed(2);
+            }
+        }, err => console.warn('profitAccount onSnapshot error:', err));
+
+        if (unsubscribeProfitHistory) { unsubscribeProfitHistory(); unsubscribeProfitHistory = null; }
+        unsubscribeProfitHistory = db.collection('userMeta').doc(uid).collection('profitHistory').onSnapshot(snapshot => {
+            profitHistory = snapshot.docs.map(d => ({ docId: d.id, ...(d.data() || {}) }));
+            if (currentView === 'profitHistory' || currentView === 'main') {
+                renderRecords();
+            }
+        }, err => console.warn('profitHistory onSnapshot error:', err));
+
         const boxAccountDoc = db.collection('userMeta').doc(uid).collection('meta').doc('boxAccount');
         boxAccountDoc.onSnapshot(doc => {
             if (doc.exists) {
@@ -2048,6 +2279,10 @@
             closeInwiHistoryPage();
         }
 
+        if (currentView === 'profitHistory') {
+            closeProfitHistoryPage();
+        }
+
         if (currentView === 'settings') {
             closeSettings();
         }
@@ -2064,6 +2299,7 @@
         elements.mainView.classList.add('hidden');
         settingsElements.settingsView.classList.remove('active');
         if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'none';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
         elements.paymentView.classList.add('active');
         elements.paymentDate.value = elements.date.value;
         renderRecords();
@@ -2074,6 +2310,7 @@
         elements.paymentView.classList.remove('active');
         settingsElements.settingsView.classList.remove('active');
         if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'none';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
         elements.mainView.classList.remove('hidden');
         renderRecords();
     }
@@ -2083,6 +2320,7 @@
         elements.mainView.classList.add('hidden');
         settingsElements.settingsView.classList.remove('active');
         elements.paymentView.classList.remove('active');
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
         if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'block';
         renderRecords();
     }
@@ -2090,6 +2328,7 @@
     window.closeInwiHistoryPage = function() {
         currentView = 'main';
         if (elements.inwiHistoryView) elements.inwiHistoryView.style.display = 'none';
+        if (profitElements.historyView) profitElements.historyView.style.display = 'none';
         elements.mainView.classList.remove('hidden');
         renderRecords();
     }
@@ -2384,6 +2623,33 @@
 
             if (inwiHistoryData.length === 0) {
                 elements.inwiHistoryList.innerHTML = '<div style="text-align:center; padding:10px; color:#999;">لا توجد بيانات</div>';
+            }
+        }
+
+        // 3c. سجل الأرباح (profitHistory)
+        if (profitElements.historyList) {
+            profitElements.historyList.innerHTML = '';
+            const historyData = [...profitHistory].sort((a, b) => b.id - a.id);
+
+            historyData.forEach(op => {
+                const item = document.createElement('div');
+                item.className = 'payment-history-item';
+                item.innerHTML = `
+                    <div class="left">
+                        <strong>مسح الأرباح</strong>
+                        <span>${op.date} <span class="time-tag">${op.time || ''}</span></span>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div class="amt" style="color: var(--green); direction: ltr;">
+                            +${op.amount.toFixed(2)}
+                        </div>
+                    </div>
+                `;
+                profitElements.historyList.appendChild(item);
+            });
+
+            if (historyData.length === 0) {
+                profitElements.historyList.innerHTML = '<div style="text-align:center; padding:10px; color:#999;">لا توجد بيانات</div>';
             }
         }
 
