@@ -678,6 +678,7 @@
                 <div style="color: rgba(255,255,255,0.25); font-size: 1rem;">=</div>
                 <div style="text-align: center;">
                     <div id="total-grand" style="color: #ffffff; font-size: 1.3rem; font-weight: 900;">0.00</div>
+                    <div id="total-surplus" style="font-size: 0.75rem; margin-top: 3px; display: none;"></div>
                 </div>
             </div>
         </div>
@@ -856,6 +857,15 @@
             </div>
 
             <div class="settings-section">
+                <div class="settings-section-title">رأس المال (المجموع الكلي المستهدف)</div>
+                <div class="form-row" style="margin-bottom: 10px; display: flex; gap: 10px;">
+                    <input type="number" id="targetCapitalInput" placeholder="أدخل رأس المال (مثلا 20000)" style="direction:ltr; flex: 1;" step="0.01">
+                    <button type="button" onclick="saveTargetCapital()" style="background: var(--blue); color: white; border: none; border-radius: 8px; padding: 10px 15px; font-weight: bold; cursor: pointer;">حفظ</button>
+                </div>
+                <div id="targetCapitalMsg" style="color: var(--green); font-size: 0.85rem; margin-top: 5px;"></div>
+            </div>
+
+            <div class="settings-section">
                 <div class="settings-section-title">تغيير كلمة المرور</div>
                 <div class="form-row" style="margin-bottom: 10px;">
                     <input type="password" id="currentPassword" placeholder="كلمة المرور الحالية" style="direction:ltr;">
@@ -993,9 +1003,10 @@
 
 <div class="modal-overlay" id="profitCalcModal">
     <div class="modal">
-        <div class="modal-title">إدخال الرصيد الجديد لحساب inwi</div>
-        <div class="form-row" style="margin-bottom: 10px;">
-            <input type="number" id="profitCalcAmountInput" placeholder="الرصيد الجديد المتوفر لديك" step="0.01">
+        <div class="modal-title">استخراج الأرباح</div>
+        <div style="text-align: center; margin-bottom: 15px;">
+            <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">الفائض المتوفر:</div>
+            <div id="profitCalcSurplusDisplay" style="font-size: 1.8rem; font-weight: bold; color: #8e24aa; direction: ltr;">0.00</div>
         </div>
         <div class="form-row" style="margin-bottom: 10px;">
             <input type="password" id="profitCalcPinInput" placeholder="الرقم السري (PIN)" style="direction:ltr;">
@@ -1111,6 +1122,8 @@
 
     const settingsElements = {
         settingsView: document.getElementById('settingsView'),
+        targetCapitalInput: document.getElementById('targetCapitalInput'),
+        targetCapitalMsg: document.getElementById('targetCapitalMsg'),
         currentPassword: document.getElementById('currentPassword'),
         newPassword: document.getElementById('newPassword'),
         newPasswordConfirm: document.getElementById('newPasswordConfirm'),
@@ -1142,6 +1155,7 @@
         pin: document.getElementById('inwiEditPinInput'),
         msg: document.getElementById('inwiEditModalMsg')
     };
+    let targetCapital = 0;
     let inwiBalance = 0;
 
     let profitBalance = 0;
@@ -1152,7 +1166,7 @@
     };
     const profitCalcElements = {
         modal: document.getElementById('profitCalcModal'),
-        amount: document.getElementById('profitCalcAmountInput'),
+        surplusDisplay: document.getElementById('profitCalcSurplusDisplay'),
         pin: document.getElementById('profitCalcPinInput'),
         msg: document.getElementById('profitCalcModalMsg')
     };
@@ -1551,15 +1565,29 @@
             inwiElements.msg.textContent = 'جاري الإضافة...';
 
             const docRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+            const boxDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('boxAccount');
+            const profitDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('profitAccount');
+
             const now = new Date();
             const hh = String(now.getHours()).padStart(2, '0');
             const mm = String(now.getMinutes()).padStart(2, '0');
             const today = now.toISOString().split('T')[0];
 
-            docRef.set(
-                { balance: firebase.firestore.FieldValue.increment(amount) },
-                { merge: true }
-            ).then(() => {
+            const remaining = records.filter(r => r.kind !== 'payment' && !r.isPaid).reduce((sum, r) => sum + (r.amount || 0), 0);
+            const newTotal = (boxBalance || 0) + ((inwiBalance || 0) + amount) + remaining;
+            let surplus = 0;
+            if (targetCapital > 0 && newTotal > targetCapital) {
+                surplus = newTotal - targetCapital;
+            }
+
+            const batch = db.batch();
+            batch.set(docRef, { balance: firebase.firestore.FieldValue.increment(amount) }, { merge: true });
+            if (surplus > 0) {
+                batch.set(boxDocRef, { balance: firebase.firestore.FieldValue.increment(-surplus) }, { merge: true });
+                batch.set(profitDocRef, { balance: firebase.firestore.FieldValue.increment(surplus) }, { merge: true });
+            }
+
+            batch.commit().then(() => {
                 return db.collection('userMeta').doc(currentUserUid).collection('inwiAdditions').add({
                     id: Date.now(),
                     amount: amount,
@@ -1618,8 +1646,24 @@
             inwiEditElements.msg.textContent = 'جاري التعديل...';
             
             const docRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+            const boxDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('boxAccount');
+            const profitDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('profitAccount');
+
+            const remaining = records.filter(r => r.kind !== 'payment' && !r.isPaid).reduce((sum, r) => sum + (r.amount || 0), 0);
+            const newTotal = (boxBalance || 0) + amount + remaining;
+            let surplus = 0;
+            if (targetCapital > 0 && newTotal > targetCapital) {
+                surplus = newTotal - targetCapital;
+            }
+
+            const batch = db.batch();
+            batch.set(docRef, { balance: amount }, { merge: true });
+            if (surplus > 0) {
+                batch.set(boxDocRef, { balance: firebase.firestore.FieldValue.increment(-surplus) }, { merge: true });
+                batch.set(profitDocRef, { balance: firebase.firestore.FieldValue.increment(surplus) }, { merge: true });
+            }
             
-            return docRef.set({ balance: amount }, { merge: true }).then(() => {
+            return batch.commit().then(() => {
                 inwiEditElements.modal.classList.remove('active');
             }).catch(err => {
                 console.error(err);
@@ -1628,12 +1672,54 @@
         });
     };
 
+    window.saveTargetCapital = function() {
+        if (!currentUserUid) return;
+        const val = parseFloat(settingsElements.targetCapitalInput.value);
+        if (isNaN(val) || val < 0) {
+            settingsElements.targetCapitalMsg.textContent = 'رقم غير صحيح';
+            settingsElements.targetCapitalMsg.style.color = 'var(--red)';
+            return;
+        }
+        settingsElements.targetCapitalMsg.textContent = 'جاري الحفظ...';
+        settingsElements.targetCapitalMsg.style.color = '#666';
+        db.collection('userMeta').doc(currentUserUid).collection('meta').doc('targetCapital')
+            .set({ amount: val }, { merge: true })
+            .then(() => {
+                settingsElements.targetCapitalMsg.textContent = 'تم الحفظ بنجاح';
+                settingsElements.targetCapitalMsg.style.color = 'var(--green)';
+                setTimeout(() => { settingsElements.targetCapitalMsg.textContent = ''; }, 3000);
+            })
+            .catch(err => {
+                console.error(err);
+                settingsElements.targetCapitalMsg.textContent = 'حدث خطأ';
+                settingsElements.targetCapitalMsg.style.color = 'var(--red)';
+            });
+    };
+
     window.promptProfitCalc = function() {
         if (!deletePinHash) {
             alert('المرجو تعيين الرقم السري (PIN) من الإعدادات أولاً');
             return;
         }
-        profitCalcElements.amount.value = '';
+        if (!targetCapital || targetCapital <= 0) {
+            alert('المرجو تعيين رأس المال المستهدف في الإعدادات أولاً لحساب الفائض');
+            return;
+        }
+
+        const remaining = records
+            .filter(r => r.kind !== 'payment' && !r.isPaid)
+            .reduce((sum, r) => sum + (r.amount || 0), 0);
+        
+        const currentTotal = (boxBalance || 0) + (inwiBalance || 0) + remaining;
+        const surplus = currentTotal - targetCapital;
+
+        if (surplus <= 0) {
+            alert('لا يوجد فائض. المجموع الحالي: ' + currentTotal.toFixed(2));
+            return;
+        }
+
+        profitCalcElements.surplusDisplay.textContent = '+' + surplus.toFixed(2);
+        profitCalcElements.surplusDisplay.dataset.amount = surplus;
         profitCalcElements.pin.value = '';
         profitCalcElements.msg.textContent = '';
         document.getElementById('showProfitCalcPin').checked = false;
@@ -1647,11 +1733,11 @@
     };
 
     window.confirmProfitCalc = function() {
-        const newBalance = parseFloat(profitCalcElements.amount.value);
+        const profit = parseFloat(profitCalcElements.surplusDisplay.dataset.amount);
         const pin = profitCalcElements.pin.value.trim();
 
-        if (isNaN(newBalance) || newBalance < 0) {
-            profitCalcElements.msg.textContent = 'المرجو إدخال مبلغ صحيح';
+        if (isNaN(profit) || profit <= 0) {
+            profitCalcElements.msg.textContent = 'خطأ في حساب الفائض';
             return;
         }
         if (!pin) {
@@ -1664,14 +1750,13 @@
                 profitCalcElements.msg.textContent = 'الرقم السري غير صحيح';
                 return;
             }
-            profitCalcElements.msg.textContent = 'جاري الحساب...';
+            profitCalcElements.msg.textContent = 'جاري استخراج الأرباح...';
             
-            const profit = newBalance - inwiBalance;
-            const inwiDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('inwiAccount');
+            const boxDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('boxAccount');
             const profitDocRef = db.collection('userMeta').doc(currentUserUid).collection('meta').doc('profitAccount');
             
             Promise.all([
-                inwiDocRef.set({ balance: newBalance }, { merge: true }),
+                boxDocRef.set({ balance: firebase.firestore.FieldValue.increment(-profit) }, { merge: true }),
                 profitDocRef.set({ balance: firebase.firestore.FieldValue.increment(profit) }, { merge: true })
             ]).then(() => {
                 profitCalcElements.modal.classList.remove('active');
@@ -1867,18 +1952,39 @@
             .filter(r => r.kind !== 'payment' && !r.isPaid)
             .reduce((sum, r) => sum + (r.amount || 0), 0);
 
-        const trueInwi = (inwiBalance || 0) - (profitBalance || 0);
-        const grand = (boxBalance || 0) + trueInwi + remaining;
+        const realGrand = (boxBalance || 0) + (inwiBalance || 0) + remaining;
 
         const elBox  = document.getElementById('total-box-part');
         const elInwi = document.getElementById('total-inwi-part');
         const elRem  = document.getElementById('total-remaining-part');
         const elGrand= document.getElementById('total-grand');
+        const elSurplus = document.getElementById('total-surplus');
 
         if (elBox)   elBox.textContent   = (boxBalance  || 0).toFixed(2);
-        if (elInwi)  elInwi.textContent  = trueInwi.toFixed(2);
+        if (elInwi)  elInwi.textContent  = (inwiBalance || 0).toFixed(2);
         if (elRem)   elRem.textContent   = remaining.toFixed(2);
-        if (elGrand) elGrand.textContent = grand.toFixed(2);
+        if (elGrand) {
+            elGrand.textContent = (targetCapital > 0 ? targetCapital : realGrand).toFixed(2);
+        }
+        
+        if (elSurplus) {
+            if (targetCapital > 0) {
+                const diff = realGrand - targetCapital;
+                elSurplus.style.display = 'block';
+                if (diff > 0) {
+                    elSurplus.textContent = '(فائض: +' + diff.toFixed(2) + ')';
+                    elSurplus.style.color = '#69f0ae'; // أخضر
+                } else if (diff < 0) {
+                    elSurplus.textContent = '(عجز: ' + diff.toFixed(2) + ')';
+                    elSurplus.style.color = '#ff5252'; // أحمر
+                } else {
+                    elSurplus.textContent = '(متوازن)';
+                    elSurplus.style.color = 'rgba(255,255,255,0.7)';
+                }
+            } else {
+                elSurplus.style.display = 'none';
+            }
+        }
     }
 
     // ====== مودال الأيام المسجلة ======
@@ -2083,6 +2189,7 @@
             if (profitElements.valDisplay) {
                 profitElements.valDisplay.textContent = profitBalance.toFixed(2);
             }
+            updateTotalCard();
         }, err => console.warn('profitAccount onSnapshot error:', err));
 
         if (unsubscribeProfitHistory) { unsubscribeProfitHistory(); unsubscribeProfitHistory = null; }
@@ -2105,6 +2212,19 @@
             }
             updateTotalCard();
         }, err => console.warn('boxAccount onSnapshot error:', err));
+
+        const targetCapitalDoc = db.collection('userMeta').doc(uid).collection('meta').doc('targetCapital');
+        targetCapitalDoc.onSnapshot(doc => {
+            if (doc.exists) {
+                targetCapital = doc.data().amount || 0;
+                if (settingsElements.targetCapitalInput) {
+                    settingsElements.targetCapitalInput.value = targetCapital > 0 ? targetCapital : '';
+                }
+            } else {
+                targetCapital = 0;
+            }
+            updateTotalCard();
+        }, err => console.warn('targetCapital onSnapshot error:', err));
 
         const userServicesDoc = db.collection('userMeta').doc(uid).collection('meta').doc('savedServices');
         unsubscribeServices = userServicesDoc.onSnapshot(doc => {
