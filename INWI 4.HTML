@@ -695,10 +695,12 @@
 
             <div class="inwi-account-card" style="background: var(--orange-light); border: 2px solid var(--orange-border); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; cursor: pointer;" onclick="openInwiHistoryPage()">
                 <h3 style="margin: 0 0 10px 0; color: var(--orange); font-size: 1rem;">حساب inwi</h3>
-                <div style="font-size: 1.8rem; font-weight: bold; color: var(--orange); direction: ltr; margin-bottom: 15px;" id="val-inwi-account">0.00</div>
-                <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
-                    <button type="button" onclick="promptInwiEdit(); event.stopPropagation();" style="flex:1; background: white; color: var(--orange); border: 1px solid var(--orange); border-radius: 8px; padding: 8px; font-size: 0.9rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">تعديل</button>
-                    <button type="button" onclick="promptInwiAdd(); event.stopPropagation();" style="flex:1; background: var(--orange); color: white; border: none; border-radius: 8px; padding: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">+</button>
+                <div style="font-size: 1.8rem; font-weight: bold; color: var(--orange); direction: ltr; margin-bottom: 8px;" id="val-inwi-account">0.00</div>
+                <div id="inwiDailySnapshotInfo" style="font-size: 0.72rem; color: var(--orange); opacity: 0.75; margin-bottom: 8px; min-height: 14px;"></div>
+                <div style="display: flex; gap: 8px; width: 100%; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" onclick="promptInwiEdit(); event.stopPropagation();" style="flex:1; min-width: 60px; background: white; color: var(--orange); border: 1px solid var(--orange); border-radius: 8px; padding: 8px; font-size: 0.9rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">تعديل</button>
+                    <button type="button" onclick="openInwiDailyHistory(); event.stopPropagation();" title="سجل الأيام" style="background: white; color: var(--orange); border: 1px solid var(--orange); border-radius: 8px; padding: 8px 12px; font-size: 1.1rem; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">📅</button>
+                    <button type="button" onclick="promptInwiAdd(); event.stopPropagation();" style="flex:1; min-width: 50px; background: var(--orange); color: white; border: none; border-radius: 8px; padding: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">+</button>
                 </div>
             </div>
 
@@ -1041,6 +1043,31 @@
     </div>
 </div>
 
+<!-- مودال سجل الأيام (inwi daily history) -->
+<div style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center; padding:20px;" id="inwiDailyHistoryModal">
+    <div style="background:#fff; border-radius:18px; width:100%; max-width:420px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, var(--orange) 0%, #ff6f00 100%); padding:20px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="color:rgba(255,255,255,0.8); font-size:0.8rem;">تسجيل تلقائي</div>
+                <div style="color:#fff; font-weight:bold; font-size:1.1rem;">📅 سجل الأيام</div>
+            </div>
+            <button type="button" onclick="closeInwiDailyHistory()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:50%; width:36px; height:36px; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <!-- Summary & Action -->
+        <div style="background:var(--orange-light); padding:10px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--orange-border); gap:8px;">
+            <div>
+                <div style="font-size:0.85rem; font-weight:bold; color:var(--orange);"><span id="inwiHistoryDaysCount">0</span> يوم مسجّل</div>
+                <div style="font-size:0.7rem; color:var(--orange); opacity:0.8;">تسجيل تلقائي عند منتصف كل ليلة</div>
+            </div>
+            <button type="button" onclick="manualInwiDailySnapshot()" style="background:var(--orange); color:#fff; border:none; border-radius:8px; padding:6px 12px; font-size:0.8rem; font-weight:bold; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.1); white-space:nowrap;">+ حفظ رصيد الآن</button>
+        </div>
+        <!-- List -->
+        <div id="inwiDailyHistoryList" style="overflow-y:auto; flex:1; padding:12px 16px; display:flex; flex-direction:column; gap:8px;">
+        </div>
+    </div>
+</div>
+
 <!-- أضف هنا مكتبات Firebase قبل سكربت التطبيق -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
@@ -1102,8 +1129,11 @@
     let unsubscribeServices = null;
     let unsubscribeInwiAdditions = null;
     let unsubscribeProfitHistory = null;
+    let unsubscribeInwiDailySnapshots = null;
     let inwiAdditions = [];
     let profitHistory = [];
+    let inwiDailySnapshots = [];
+    let lastInwiSnapshotTime = null; // timestamp of last snapshot
 
     let authMode = 'login';
 
@@ -1263,12 +1293,17 @@
             if (unsubscribeServices) { unsubscribeServices(); unsubscribeServices = null; }
             if (unsubscribeInwiAdditions) { unsubscribeInwiAdditions(); unsubscribeInwiAdditions = null; }
             if (unsubscribeProfitHistory) { unsubscribeProfitHistory(); unsubscribeProfitHistory = null; }
+            if (unsubscribeInwiDailySnapshots) { unsubscribeInwiDailySnapshots(); unsubscribeInwiDailySnapshots = null; }
+            if (midnightSnapshotTimer) { clearTimeout(midnightSnapshotTimer); midnightSnapshotTimer = null; }
+            document.removeEventListener('visibilitychange', _onVisibilityChange);
 
             records = [];
             payments = [];
             savedServices = [];
             inwiAdditions = [];
             profitHistory = [];
+            inwiDailySnapshots = [];
+            lastInwiSnapshotTime = null;
         }
     });
 
@@ -2101,11 +2136,21 @@
             .catch(err => console.warn('autoDelete payments error:', err));
     }
 
+    // مراقبة عودة المستخدم للصفحة لفحص إذا تغيّر اليوم أثناء الغياب
+    function _onVisibilityChange() {
+        if (document.visibilityState === 'visible' && currentUserUid) {
+            checkMissedAutoSnapshot();
+        }
+    }
+
     function attachUserScopedListeners(uid) {
         if (unsubscribeRecords) { unsubscribeRecords(); unsubscribeRecords = null; }
         if (unsubscribePayments) { unsubscribePayments(); unsubscribePayments = null; }
         if (unsubscribeServices) { unsubscribeServices(); unsubscribeServices = null; }
         if (unsubscribeInwiAdditions) { unsubscribeInwiAdditions(); unsubscribeInwiAdditions = null; }
+        if (unsubscribeProfitHistory) { unsubscribeProfitHistory(); unsubscribeProfitHistory = null; }
+        if (unsubscribeInwiDailySnapshots) { unsubscribeInwiDailySnapshots(); unsubscribeInwiDailySnapshots = null; }
+        if (midnightSnapshotTimer) { clearTimeout(midnightSnapshotTimer); midnightSnapshotTimer = null; }
 
         // حذف تلقائي للعمليات الأقدم من 30 يوماً عند تسجيل الدخول
         autoDeleteOldRecords(uid);
@@ -2199,6 +2244,30 @@
                 renderRecords();
             }
         }, err => console.warn('profitHistory onSnapshot error:', err));
+
+        // --- مزامنة تسجيلات اليوم (inwi daily snapshots) ---
+        unsubscribeInwiDailySnapshots = db.collection('userMeta').doc(uid).collection('inwiDailySnapshots')
+            .orderBy('timestamp', 'desc')
+            .onSnapshot(snapshot => {
+                inwiDailySnapshots = snapshot.docs.map(d => ({ docId: d.id, ...(d.data() || {}) }));
+                // حساب آخر تسجيل
+                if (inwiDailySnapshots.length > 0) {
+                    lastInwiSnapshotTime = inwiDailySnapshots[0].timestamp || null;
+                } else {
+                    lastInwiSnapshotTime = null;
+                }
+                updateInwiSnapshotBtnState();
+                renderInwiDailySnapshotsInHistory();
+                // فحص إذا فات يوم دون تسجيل
+                checkMissedAutoSnapshot();
+            }, err => console.warn('inwiDailySnapshots onSnapshot error:', err));
+
+        // جدولة التسجيل التلقائي عند منتصف الليل
+        scheduleMidnightAutoSnapshot();
+
+        // فحص عند عودة المستخدم للصفحة (بعد تغيير اليوم في الخلفية)
+        document.removeEventListener('visibilitychange', _onVisibilityChange);
+        document.addEventListener('visibilitychange', _onVisibilityChange);
 
         const boxAccountDoc = db.collection('userMeta').doc(uid).collection('meta').doc('boxAccount');
         boxAccountDoc.onSnapshot(doc => {
@@ -2655,7 +2724,6 @@
         const sumPaymentToday = todayPayments.reduce((sum, p) => sum + p.amount, 0);
         
         // الأحمر: مستخلص اليوم (فقط المدفوع في هذا التاريخ)
-        // ملاحظة: نفترض ان الدفع تم في نفس تاريخ السجل، أو ان المستخدم يرى سجلات مدفوعة بتاريخ اليوم
         const paidToday = todayRecords.filter(r => r.isPaid);
         const sumPaidToday = paidToday.reduce((sum, r) => sum + r.amount, 0);
 
@@ -2717,24 +2785,48 @@
             elements.paymentHistory.innerHTML = '<div style="text-align:center; padding:10px; color:#999;">لا توجد بيانات</div>';
         }
 
-        // 3b. سجل inwi (الاستخلاصات والإضافات معاً)
+        // 3b. سجل inwi (الإضافات اليدوية + تسجيلات اليوم)
         if (elements.inwiHistoryList) {
             elements.inwiHistoryList.innerHTML = '';
-            const inwiHistoryData = [
-                ...inwiAdditions.map(a => ({ id: a.id, type: 'شحن inwi', desc: 'إضافة يدوية', amount: a.amount, date: a.date, time: a.time }))
-            ].sort((a, b) => b.id - a.id);
+
+            // إضافات يدوية
+            const additionItems = inwiAdditions.map(a => ({
+                sortKey: a.id || 0,
+                type: 'addition',
+                desc: 'إضافة يدوية',
+                subtype: 'شحن inwi',
+                amount: a.amount,
+                date: a.date,
+                time: a.time || ''
+            }));
+
+            // تسجيلات اليوم (snapshots)
+            const snapshotItems = inwiDailySnapshots.map(s => ({
+                sortKey: s.timestamp || 0,
+                type: 'snapshot',
+                desc: 'تسجيل نهاية اليوم',
+                subtype: 'رصيد متبقٍ',
+                amount: s.balance,
+                date: s.date,
+                time: s.time || ''
+            }));
+
+            const inwiHistoryData = [...additionItems, ...snapshotItems].sort((a, b) => b.sortKey - a.sortKey);
 
             inwiHistoryData.forEach(op => {
                 const item = document.createElement('div');
                 item.className = 'payment-history-item';
+                const isSnapshot = op.type === 'snapshot';
+                const amtColor = isSnapshot ? '#1565c0' : (op.amount > 0 ? 'var(--green)' : 'var(--red)');
+                const amtPrefix = isSnapshot ? '💰' : (op.amount > 0 ? '+' : '');
                 item.innerHTML = `
                     <div class="left">
-                        <strong>${op.desc} <span style="font-size: 0.8em; color: ${op.amount > 0 ? 'var(--green)' : 'var(--red)'};">(${op.type})</span></strong>
-                        <span>${op.date} <span class="time-tag">${op.time || ''}</span></span>
+                        <strong>${op.desc} <span style="font-size: 0.8em; color: ${amtColor};">(${op.subtype})</span></strong>
+                        <span>${op.date} <span class="time-tag">${op.time}</span></span>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <div class="amt" style="color: ${op.amount > 0 ? 'var(--green)' : 'var(--red)'}; direction: ltr;">
-                            ${op.amount > 0 ? '+' : ''}${op.amount.toFixed(2)}
+                        <div class="amt" style="color: ${amtColor}; direction: ltr;">
+                            ${amtPrefix}${Number(op.amount).toFixed(2)}
                         </div>
                     </div>
                 `;
@@ -2864,5 +2956,197 @@
         // تحديث بطاقة المجموع الكلي
         updateTotalCard();
     }
+
+
+    // ====== تسجيل رصيد اليوم تلقائيّاً (Auto inwi daily snapshot) ======
+
+    let midnightSnapshotTimer = null;
+
+    function getLocalDateString(d = new Date()) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // حفظ اللقطة بدون PIN
+    function autoSaveInwiDailySnapshot(dateStr, balanceToSave, isAuto = true) {
+        if (!currentUserUid) return Promise.resolve();
+        const now = new Date();
+        const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        return db.collection('userMeta').doc(currentUserUid).collection('inwiDailySnapshots').add({
+            balance: Number(balanceToSave) || 0,
+            date: dateStr,
+            time: timeStr,
+            timestamp: Date.now(),
+            isAuto: !!isAuto
+        }).catch(err => console.warn('autoSaveInwiDailySnapshot error:', err));
+    }
+
+    // جدولة منتصف الليل للتسجيل التلقائي
+    function scheduleMidnightAutoSnapshot() {
+        if (midnightSnapshotTimer) clearTimeout(midnightSnapshotTimer);
+        if (!currentUserUid) return;
+        const now = new Date();
+        const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5); // 5 ثوان بعد منتصف الليل
+        const msUntilMidnight = Math.max(1000, midnight.getTime() - now.getTime());
+        midnightSnapshotTimer = setTimeout(() => {
+            // تسجيل رصيد نهاية اليوم المنتهي (أمس)
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = getLocalDateString(yesterday);
+            autoSaveInwiDailySnapshot(yesterdayStr, inwiBalance, true).then(() => {
+                scheduleMidnightAutoSnapshot(); // جدولة اليوم التالي
+            });
+        }, msUntilMidnight);
+    }
+
+    // فحص عند تحميل الصفحة إذا كان اليوم تغيّر ولم يتم تسجيل أمس
+    function checkMissedAutoSnapshot() {
+        if (!currentUserUid) return;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yesterday);
+        // هل يوجد تسجيل لأمس؟
+        const hasYesterday = inwiDailySnapshots.some(s => s.date === yesterdayStr);
+        if (!hasYesterday && inwiDailySnapshots.length > 0) {
+            // لم يتم تسجيل أمس، سجّل بالرصيد الحالي
+            autoSaveInwiDailySnapshot(yesterdayStr, inwiBalance, true);
+        }
+    }
+
+    // حفظ رصيد اليوم يدوياً من المودال
+    window.manualInwiDailySnapshot = function() {
+        if (!currentUserUid) {
+            alert('يرجى تسجيل الدخول أولاً');
+            return;
+        }
+        const todayStr = getLocalDateString(new Date());
+        const bal = Number(inwiBalance || 0);
+        if (!confirm(`هل تريد تسجيل رصيد اليوم (${todayStr}) بالمبلغ الحالي: ${bal.toFixed(2)} درهم؟`)) return;
+        autoSaveInwiDailySnapshot(todayStr, bal, false).then(() => {
+            renderInwiDailyHistoryModal();
+        });
+    };
+
+    // حذف تسجيل يوم محدد
+    window.deleteInwiDailySnapshot = function(docId) {
+        if (!currentUserUid || !docId) return;
+        if (!confirm('هل أنت متأكد من حذف هذا السجل؟')) return;
+        db.collection('userMeta').doc(currentUserUid).collection('inwiDailySnapshots').doc(docId).delete()
+            .catch(err => {
+                console.warn('delete inwiDailySnapshot error:', err);
+                alert('حدث خطأ أثناء الحذف');
+            });
+    };
+
+    // تحديث معلومات آخر تسجيل تحت الرصيد
+    function updateInwiSnapshotBtnState() {
+        const info = document.getElementById('inwiDailySnapshotInfo');
+        if (!info) return;
+        if (inwiDailySnapshots.length > 0) {
+            const sorted = [...inwiDailySnapshots].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const lastSnap = sorted[0];
+            const lastAmt = Number(lastSnap.balance || 0).toFixed(2);
+            info.textContent = `آخر تسجيل: ${lastAmt} — ${lastSnap.date || ''}`;
+        } else {
+            info.textContent = 'لم يتم تسجيل بعد';
+        }
+    }
+
+    function renderInwiDailySnapshotsInHistory() {
+        if (currentView === 'inwiHistory') renderRecords();
+    }
+
+    // فتح مودال سجل الأيام
+    window.openInwiDailyHistory = function() {
+        const modal = document.getElementById('inwiDailyHistoryModal');
+        if (!modal) return;
+        renderInwiDailyHistoryModal();
+        modal.style.display = 'flex';
+    };
+
+    window.closeInwiDailyHistory = function() {
+        const modal = document.getElementById('inwiDailyHistoryModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function renderInwiDailyHistoryModal() {
+        const list = document.getElementById('inwiDailyHistoryList');
+        const countEl = document.getElementById('inwiHistoryDaysCount');
+        if (!list) return;
+        list.innerHTML = '';
+
+        // تجميع تسجيلات كل يوم: إبقاء آخر تسجيل لكل يوم إذا تكرر
+        const byDate = {};
+        inwiDailySnapshots.forEach(s => {
+            if (!byDate[s.date] || (s.timestamp || 0) > (byDate[s.date].timestamp || 0)) {
+                byDate[s.date] = s;
+            }
+        });
+
+        // ترتيب تنازلي حسب التاريخ ثم الطابع الزمني
+        const sorted = Object.values(byDate).sort((a, b) => {
+            if (b.date && a.date && b.date !== a.date) {
+                return b.date.localeCompare(a.date);
+            }
+            return (b.timestamp || 0) - (a.timestamp || 0);
+        });
+
+        if (countEl) countEl.textContent = sorted.length;
+
+        if (sorted.length === 0) {
+            list.innerHTML = `
+                <div style="text-align:center; padding:40px 20px; color:#bbb;">
+                    <div style="font-size:3rem; margin-bottom:10px;">📅</div>
+                    <div style="font-size:0.9rem; color:#666; margin-bottom:12px;">سيتم تسجيل رصيد كل يوم تلقائيّاً عند منتصف الليل</div>
+                    <button type="button" onclick="manualInwiDailySnapshot()" style="background:var(--orange); color:#fff; border:none; border-radius:8px; padding:8px 16px; font-size:0.85rem; font-weight:bold; cursor:pointer;">تسجيل رصيد اليوم الآن</button>
+                </div>`;
+            return;
+        }
+
+        sorted.forEach((snap, idx) => {
+            const bal = Number(snap.balance || 0).toFixed(2);
+            const prevSnap = sorted[idx + 1];
+            let diffHtml = '';
+            if (prevSnap) {
+                const diff = Number(snap.balance || 0) - Number(prevSnap.balance || 0);
+                const sign = diff >= 0 ? '+' : '';
+                const col = diff >= 0 ? '#2e7d32' : '#c62828';
+                diffHtml = `<span style="font-size:0.75rem; font-weight:bold; color:${col}; margin-right:6px;" title="الفارق عن اليوم السابق">(${sign}${diff.toFixed(2)})</span>`;
+            }
+            const isAuto = snap.isAuto ? '<span style="font-size:0.65rem; background:#fff3e0; color:var(--orange); padding:2px 6px; border-radius:4px; font-weight:bold;">تلقائي</span>' : '<span style="font-size:0.65rem; background:#e3f2fd; color:#1565c0; padding:2px 6px; border-radius:4px; font-weight:bold;">يدوي</span>';
+            const item = document.createElement('div');
+            item.style.cssText = `
+                display:flex; justify-content:space-between; align-items:center;
+                background:${idx === 0 ? 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)' : '#fafafa'};
+                border:1px solid ${idx === 0 ? 'var(--orange-border)' : '#eee'};
+                border-radius:12px; padding:12px 14px;
+                ${idx === 0 ? 'box-shadow: 0 2px 8px rgba(230,81,0,0.12);' : ''}
+            `;
+            item.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                            ${isAuto}
+                            <span style="font-weight:bold; color:#333; font-size:0.95rem;">${snap.date || ''}</span>
+                            ${idx === 0 ? '<span style="font-size:0.65rem; background:var(--orange); color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">آخر يوم</span>' : ''}
+                        </div>
+                        <div style="font-size:0.75rem; color:#888;">الوقت: ${snap.time || '--'}</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="text-align:left; direction:ltr;">
+                        ${diffHtml}
+                        <div style="font-size:1.25rem; font-weight:bold; color:var(--orange);">${bal}</div>
+                    </div>
+                    ${snap.docId ? `<button type="button" onclick="deleteInwiDailySnapshot('${snap.docId}')" title="حذف" style="background:none; border:none; color:#c62828; cursor:pointer; font-size:1rem; opacity:0.6; padding:4px; border-radius:4px; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">🗑️</button>` : ''}
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    }
 </script>
+</body>
+</html>
 
