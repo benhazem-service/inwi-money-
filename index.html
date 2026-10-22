@@ -985,7 +985,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="pinModal">
+<div class="modal-overlay" id="pinModal" style="z-index: 10001;">
     <div class="modal">
         <div class="modal-title" id="pinModalTitle">تأكيد الحذف</div>
         <div class="form-row" style="margin-bottom: 10px;">
@@ -1074,6 +1074,14 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
 <script>
+    // --- دالة التاريخ المحلي YYYY-MM-DD ---
+    function getLocalDateString(d = new Date()) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     // --- 1. تحويل الحروف للعربية ---
     const arabicMapping = {
         'q': 'ض', 'w': 'ص', 'e': 'ث', 'r': 'ق', 't': 'ف', 'y': 'غ', 'u': 'ع', 'i': 'ه', 'o': 'خ', 'p': 'ح', '[': 'ج', ']': 'د',
@@ -1130,10 +1138,15 @@
     let unsubscribeInwiAdditions = null;
     let unsubscribeProfitHistory = null;
     let unsubscribeInwiDailySnapshots = null;
+    let unsubscribeDeletedSnapshots = null;
     let inwiAdditions = [];
     let profitHistory = [];
     let inwiDailySnapshots = [];
     let lastInwiSnapshotTime = null; // timestamp of last snapshot
+    let inwiAccountLoaded = false;
+    let inwiSnapshotsLoaded = false;
+    let isSyncingSnapshots = false;
+    let deletedSnapshotDates = new Set(JSON.parse(localStorage.getItem('inwiDeletedSnapshotDates') || '[]'));
 
     let authMode = 'login';
 
@@ -1259,8 +1272,9 @@
         inwiHistoryList: document.getElementById('inwiHistoryList')
     };
 
-    elements.date.valueAsDate = new Date();
-    elements.paymentDate.value = elements.date.value;
+    const todayInitialStr = getLocalDateString(new Date());
+    elements.date.value = todayInitialStr;
+    elements.paymentDate.value = todayInitialStr;
 
     // تذكّر البريد فقط (بدون كلمة السر)
     const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
@@ -1294,6 +1308,7 @@
             if (unsubscribeInwiAdditions) { unsubscribeInwiAdditions(); unsubscribeInwiAdditions = null; }
             if (unsubscribeProfitHistory) { unsubscribeProfitHistory(); unsubscribeProfitHistory = null; }
             if (unsubscribeInwiDailySnapshots) { unsubscribeInwiDailySnapshots(); unsubscribeInwiDailySnapshots = null; }
+            if (unsubscribeDeletedSnapshots) { unsubscribeDeletedSnapshots(); unsubscribeDeletedSnapshots = null; }
             if (midnightSnapshotTimer) { clearTimeout(midnightSnapshotTimer); midnightSnapshotTimer = null; }
             document.removeEventListener('visibilitychange', _onVisibilityChange);
 
@@ -1304,6 +1319,9 @@
             profitHistory = [];
             inwiDailySnapshots = [];
             lastInwiSnapshotTime = null;
+            inwiAccountLoaded = false;
+            inwiSnapshotsLoaded = false;
+            deletedSnapshotDates.clear();
         }
     });
 
@@ -2086,15 +2104,22 @@
                 return;
             }
 
-            batch.commit().then(() => {
+            // تحديث محلي فوري للمصفوفات والتخزين المحلي
+            records = records.filter(r => r.date !== date);
+            payments = payments.filter(p => p.date !== date);
+            localStorage.setItem('invoiceRecords', JSON.stringify(records));
+            localStorage.setItem('paymentRecords', JSON.stringify(payments));
+            renderRecords();
+
+            return batch.commit().then(() => {
                 closeDateHistory();
-            }).catch(err => {
-                console.error('deleteDayRecords error:', err);
-                alert('حدث خطأ أثناء الحذف');
             });
         }).catch(err => {
             if (err && err.message === 'PIN_NOT_SET') {
                 alert('المرجو تعيين PIN للحذف من الإعدادات');
+            } else if (err && err.message !== 'CANCELLED') {
+                console.error('deleteDayRecords error:', err);
+                alert('حدث خطأ أثناء الحذف');
             }
         });
     };
@@ -2139,11 +2164,13 @@
     // مراقبة عودة المستخدم للصفحة لفحص إذا تغيّر اليوم أثناء الغياب
     function _onVisibilityChange() {
         if (document.visibilityState === 'visible' && currentUserUid) {
-            checkMissedAutoSnapshot();
+            syncDailySnapshots();
         }
     }
 
     function attachUserScopedListeners(uid) {
+        inwiAccountLoaded = false;
+        inwiSnapshotsLoaded = false;
         if (unsubscribeRecords) { unsubscribeRecords(); unsubscribeRecords = null; }
         if (unsubscribePayments) { unsubscribePayments(); unsubscribePayments = null; }
         if (unsubscribeServices) { unsubscribeServices(); unsubscribeServices = null; }
@@ -2220,6 +2247,8 @@
                 inwiElements.valDisplay.textContent = inwiBalance.toFixed(2);
             }
             updateTotalCard();
+            inwiAccountLoaded = true;
+            syncDailySnapshots();
         }, err => {
             console.warn('Firestore inwi onSnapshot error:', err);
         });
@@ -2258,9 +2287,18 @@
                 }
                 updateInwiSnapshotBtnState();
                 renderInwiDailySnapshotsInHistory();
-                // فحص إذا فات يوم دون تسجيل
-                checkMissedAutoSnapshot();
+                inwiSnapshotsLoaded = true;
+                syncDailySnapshots();
             }, err => console.warn('inwiDailySnapshots onSnapshot error:', err));
+
+        if (unsubscribeDeletedSnapshots) { unsubscribeDeletedSnapshots(); unsubscribeDeletedSnapshots = null; }
+        unsubscribeDeletedSnapshots = db.collection('userMeta').doc(uid).collection('meta').doc('deletedSnapshots')
+            .onSnapshot(doc => {
+                if (doc.exists && Array.isArray(doc.data().dates)) {
+                    doc.data().dates.forEach(d => deletedSnapshotDates.add(d));
+                    localStorage.setItem('inwiDeletedSnapshotDates', JSON.stringify([...deletedSnapshotDates]));
+                }
+            }, err => console.warn('deletedSnapshots onSnapshot error:', err));
 
         // جدولة التسجيل التلقائي عند منتصف الليل
         scheduleMidnightAutoSnapshot();
@@ -2638,6 +2676,9 @@
         if (!docId) return;
 
         requireDeletePin().then(() => {
+            payments = payments.filter(p => p.id !== id && p.docId !== docId);
+            localStorage.setItem('paymentRecords', JSON.stringify(payments));
+            renderRecords();
             return paymentsBaseCol.doc(docId).delete();
         }).catch(err => {
             if (err && err.message === 'PIN_NOT_SET') {
@@ -2682,6 +2723,9 @@
         const docId = findDocIdById(id);
         if (!docId) return;
         requireDeletePin().then(() => {
+            records = records.filter(r => r.id !== id && r.docId !== docId);
+            localStorage.setItem('invoiceRecords', JSON.stringify(records));
+            renderRecords();
             return recordsBaseCol.doc(docId).delete();
         }).catch(err => {
             if (err && err.message === 'PIN_NOT_SET') {
@@ -2962,25 +3006,38 @@
 
     let midnightSnapshotTimer = null;
 
-    function getLocalDateString(d = new Date()) {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    // حفظ اللقطة بدون PIN
+    // حفظ اللقطة بدون PIN وتحديثها إذا كانت لنفس اليوم
     function autoSaveInwiDailySnapshot(dateStr, balanceToSave, isAuto = true) {
-        if (!currentUserUid) return Promise.resolve();
+        if (!currentUserUid || !dateStr) return Promise.resolve();
         const now = new Date();
-        const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-        return db.collection('userMeta').doc(currentUserUid).collection('inwiDailySnapshots').add({
+        const todayStr = getLocalDateString(now);
+        const isToday = (dateStr === todayStr);
+        const timeStr = isToday
+            ? (String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'))
+            : '23:59';
+        const timestamp = isToday
+            ? Date.now()
+            : (new Date(dateStr + 'T23:59:59').getTime() || Date.now());
+
+        const snapCol = db.collection('userMeta').doc(currentUserUid).collection('inwiDailySnapshots');
+        
+        // هل يوجد تسجيل سابق لنفس التاريخ؟
+        const existing = inwiDailySnapshots.find(s => s.date === dateStr);
+        const data = {
             balance: Number(balanceToSave) || 0,
             date: dateStr,
-            time: timeStr,
-            timestamp: Date.now(),
+            time: (existing && !isAuto) ? (existing.time || timeStr) : timeStr,
+            timestamp: timestamp,
             isAuto: !!isAuto
-        }).catch(err => console.warn('autoSaveInwiDailySnapshot error:', err));
+        };
+
+        if (existing && existing.docId) {
+            return snapCol.doc(existing.docId).set(data, { merge: true })
+                .catch(err => console.warn('autoSaveInwiDailySnapshot update error:', err));
+        } else {
+            return snapCol.add(data)
+                .catch(err => console.warn('autoSaveInwiDailySnapshot add error:', err));
+        }
     }
 
     // جدولة منتصف الليل للتسجيل التلقائي
@@ -2991,28 +3048,35 @@
         const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5); // 5 ثوان بعد منتصف الليل
         const msUntilMidnight = Math.max(1000, midnight.getTime() - now.getTime());
         midnightSnapshotTimer = setTimeout(() => {
-            // تسجيل رصيد نهاية اليوم المنتهي (أمس)
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = getLocalDateString(yesterday);
-            autoSaveInwiDailySnapshot(yesterdayStr, inwiBalance, true).then(() => {
-                scheduleMidnightAutoSnapshot(); // جدولة اليوم التالي
-            });
+            syncDailySnapshots();
+            scheduleMidnightAutoSnapshot(); // جدولة اليوم التالي
         }, msUntilMidnight);
     }
 
-    // فحص عند تحميل الصفحة إذا كان اليوم تغيّر ولم يتم تسجيل أمس
-    function checkMissedAutoSnapshot() {
-        if (!currentUserUid) return;
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = getLocalDateString(yesterday);
-        // هل يوجد تسجيل لأمس؟
-        const hasYesterday = inwiDailySnapshots.some(s => s.date === yesterdayStr);
-        if (!hasYesterday && inwiDailySnapshots.length > 0) {
-            // لم يتم تسجيل أمس، سجّل بالرصيد الحالي
-            autoSaveInwiDailySnapshot(yesterdayStr, inwiBalance, true);
+    // مزامنة وتسجيل رصيد اليوم الحالي تلقائياً
+    function syncDailySnapshots() {
+        if (!currentUserUid || !inwiAccountLoaded || !inwiSnapshotsLoaded || isSyncingSnapshots) return;
+        isSyncingSnapshots = true;
+
+        const today = new Date();
+        const todayStr = getLocalDateString(today);
+        const bal = Number(inwiBalance || 0);
+
+        const promises = [];
+
+        // تسجيل/تحديث رصيد اليوم الحالي (فقط إذا لم يقم المستخدم بحذفه عمداً)
+        if (!deletedSnapshotDates.has(todayStr)) {
+            const todaySnap = inwiDailySnapshots.find(s => s.date === todayStr);
+            if (!todaySnap) {
+                promises.push(autoSaveInwiDailySnapshot(todayStr, bal, true));
+            } else if (todaySnap.isAuto && Number(todaySnap.balance) !== bal) {
+                promises.push(autoSaveInwiDailySnapshot(todayStr, bal, true));
+            }
         }
+
+        Promise.all(promises).finally(() => {
+            isSyncingSnapshots = false;
+        });
     }
 
     // حفظ رصيد اليوم يدوياً من المودال
@@ -3024,20 +3088,47 @@
         const todayStr = getLocalDateString(new Date());
         const bal = Number(inwiBalance || 0);
         if (!confirm(`هل تريد تسجيل رصيد اليوم (${todayStr}) بالمبلغ الحالي: ${bal.toFixed(2)} درهم؟`)) return;
+        
+        // إذا قام المستخدم بحفظ اليوم يدوياً، نزيله من قائمة المحذوفات
+        if (deletedSnapshotDates.has(todayStr)) {
+            deletedSnapshotDates.delete(todayStr);
+            localStorage.setItem('inwiDeletedSnapshotDates', JSON.stringify([...deletedSnapshotDates]));
+            if (currentUserUid) {
+                db.collection('userMeta').doc(currentUserUid).collection('meta').doc('deletedSnapshots')
+                    .set({ dates: [...deletedSnapshotDates] }, { merge: true })
+                    .catch(e => console.warn('save deletedSnapshots error:', e));
+            }
+        }
+
         autoSaveInwiDailySnapshot(todayStr, bal, false).then(() => {
             renderInwiDailyHistoryModal();
         });
     };
 
-    // حذف تسجيل يوم محدد
+    // حذف تسجيل يوم محدد برقم سري PIN بشكل دائم
     window.deleteInwiDailySnapshot = function(docId) {
         if (!currentUserUid || !docId) return;
-        if (!confirm('هل أنت متأكد من حذف هذا السجل؟')) return;
-        db.collection('userMeta').doc(currentUserUid).collection('inwiDailySnapshots').doc(docId).delete()
-            .catch(err => {
+        requireDeletePin().then(() => {
+            const snap = inwiDailySnapshots.find(s => s.docId === docId);
+            const dateToDelete = snap ? snap.date : null;
+            if (dateToDelete) {
+                deletedSnapshotDates.add(dateToDelete);
+                localStorage.setItem('inwiDeletedSnapshotDates', JSON.stringify([...deletedSnapshotDates]));
+                if (currentUserUid) {
+                    db.collection('userMeta').doc(currentUserUid).collection('meta').doc('deletedSnapshots')
+                        .set({ dates: [...deletedSnapshotDates] }, { merge: true })
+                        .catch(e => console.warn('save deletedSnapshots error:', e));
+                }
+            }
+            return db.collection('userMeta').doc(currentUserUid).collection('inwiDailySnapshots').doc(docId).delete();
+        }).catch(err => {
+            if (err && err.message === 'PIN_NOT_SET') {
+                alert('المرجو تعيين PIN للحذف من الإعدادات');
+            } else if (err && err.message !== 'CANCELLED') {
                 console.warn('delete inwiDailySnapshot error:', err);
                 alert('حدث خطأ أثناء الحذف');
-            });
+            }
+        });
     };
 
     // تحديث معلومات آخر تسجيل تحت الرصيد
@@ -3045,7 +3136,12 @@
         const info = document.getElementById('inwiDailySnapshotInfo');
         if (!info) return;
         if (inwiDailySnapshots.length > 0) {
-            const sorted = [...inwiDailySnapshots].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const sorted = [...inwiDailySnapshots].sort((a, b) => {
+                if (b.date && a.date && b.date !== a.date) {
+                    return b.date.localeCompare(a.date);
+                }
+                return (b.timestamp || 0) - (a.timestamp || 0);
+            });
             const lastSnap = sorted[0];
             const lastAmt = Number(lastSnap.balance || 0).toFixed(2);
             info.textContent = `آخر تسجيل: ${lastAmt} — ${lastSnap.date || ''}`;
